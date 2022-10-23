@@ -2,6 +2,7 @@ from pathlib import Path
 import argparse
 
 import numpy as np
+import numpy.typing as npt
 from imageio import imwrite
 from PIL import Image
 
@@ -17,7 +18,7 @@ DEFAULT_OVERLAY_ALPHA = 0.3
 DEFAULT_PLANE = "axial"
 
 
-def hu_to_grayscale(volume, hu_min, hu_max):
+def hu_to_grayscale(volume: npt.NDArray, hu_min, hu_max):
     # Clip at max and min values if specified
     if hu_min is not None or hu_max is not None:
         volume = np.clip(volume, hu_min, hu_max)
@@ -33,7 +34,7 @@ def hu_to_grayscale(volume, hu_min, hu_max):
     return np.stack((im_volume, im_volume, im_volume), axis=-1)
 
 
-def class_to_color(segmentation, k_color, t_color):
+def class_to_color(segmentation: npt.NDArray, k_color, t_color):
     # initialize output to zeros
     shp = segmentation.shape
     seg_color = np.zeros((shp[0], shp[1], shp[2], 3), dtype=np.float32)
@@ -57,7 +58,7 @@ def overlay(volume_ims, segmentation_ims, segmentation, alpha):
     return overlayed
 
 
-def visualize(cid, destination, hu_min=DEFAULT_HU_MIN, hu_max=DEFAULT_HU_MAX, 
+def visualize(cid: int, destination: str, hu_min=DEFAULT_HU_MIN, hu_max=DEFAULT_HU_MAX, 
     k_color=DEFAULT_KIDNEY_COLOR, t_color=DEFAULT_TUMOR_COLOR,
     alpha=DEFAULT_OVERLAY_ALPHA, plane=DEFAULT_PLANE, less_ram=False):
 
