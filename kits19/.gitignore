@@ -1,5 +1,7 @@
-*__pycache__*
-.vscode*
-data/
-*.tmp
-test
+*
+!.gitignore
+!*.py
+!*.md
+!LICENSE
+!requirements.txt
+!starter_code
