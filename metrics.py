@@ -49,3 +49,27 @@ class ConfusionMatrix:
         tp = conf.diag()
         total = conf.sum(dim=1)
         return tp /  total # returns "acc mean"
+
+
+def dices(probabilities: torch.Tensor, labels: torch.Tensor):
+    try:
+        # Compute tumor+kidney Dice
+        tk_pd = probabilities > 0
+        tk_gt = labels > 0
+        tk_dice = 2*torch.logical_and(tk_pd, tk_gt).sum()/(
+            tk_pd.sum() + tk_gt.sum()
+        )
+    except ZeroDivisionError:
+        return torch.Tensor([0.0, 0.0])
+
+    try:
+        # Compute tumor Dice
+        tu_pd = probabilities > 1
+        tu_gt = labels > 1
+        tu_dice = 2*torch.logical_and(tu_pd, tu_gt).sum()/(
+            tu_pd.sum() + tu_gt.sum()
+        )
+    except ZeroDivisionError:
+        return torch.Tensor([tk_dice, 0.0])
+
+    return torch.Tensor([tk_dice, tu_dice])

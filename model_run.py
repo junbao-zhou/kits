@@ -9,7 +9,7 @@ def model_run(
     data_loader: DataLoader,
     model: nn.Module,
     criterions: Dict[str, Tuple[Callable[[torch.Tensor, torch.Tensor], torch.Tensor], float]],
-    metrics: Dict[str, Callable[[torch.Tensor, torch.Tensor], Any]],
+    metrics: Dict[str, Callable[[torch.Tensor, torch.Tensor, torch.Tensor], Any]],
     device: torch.device,
     optimizer=None,
     print_every: int = 0
@@ -21,9 +21,9 @@ def model_run(
         model.eval()
 
     total_batch_num = len(data_loader)
-    epoch_total_loss = AverageMeter('Total Loss')
-    epoch_losses = {c: AverageMeter(c) for c in criterions}
-    epoch_metric_s = {m: AverageMeter(m) for m in metrics}
+    epoch_total_loss = AverageMeter()
+    epoch_losses = {c: AverageMeter() for c in criterions}
+    epoch_metric_s = {m: AverageMeter() for m in metrics}
 
     for batch, (X, y_true) in enumerate(data_loader):
         X = X.to(device)
@@ -32,6 +32,7 @@ def model_run(
 
         # Forward pass
         predict = model(X)
+        probabilities = predict.argmax(dim=1)
         batch_losses = {
             loss_name: loss_func(predict, y_true)
             for loss_name, (loss_func, _) in criterions.items()
@@ -46,18 +47,21 @@ def model_run(
 
         with torch.no_grad():
             batch_metric_s = {
-                m: metrics[m](predict, y_true)
+                m: metrics[m](predict, probabilities, y_true)
                 for m in metrics
             }
             for m, batch_metric in batch_metric_s.items():
                 epoch_metric_s[m].update(batch_metric, batch_size)
 
         if (print_every > 0) and ((batch+1) % print_every == 0):
+            losses_str = [f"{name} : {loss:.4f}" for name, loss in batch_losses.items()]
+            metrics_str = [f"{name} : {metric}" for name, metric in batch_metric_s.items()]
             print(
-                f'batch : [{batch} / {total_batch_num}], loss = {batch_total_loss}, ')
-            for m in metrics:
-                print(
-                    f'  {m} = {batch_metric_s[m]} epoch : {epoch_metric_s[m]}')
+                f"""[{batch} / {total_batch_num}] | \
+loss : {batch_total_loss:.4f} | \
+{" | ".join(losses_str)} | \
+{" | ".join(metrics_str)} | \
+""")
 
         if optimizer:
             # Backward pass
@@ -65,7 +69,7 @@ def model_run(
             batch_total_loss.backward()
             optimizer.step()
 
-    return epoch_total_loss, epoch_metric_s
+    return epoch_total_loss.get(), {name: meter.get() for name, meter in epoch_metric_s.items()}
 
 
 def train_epoch(
