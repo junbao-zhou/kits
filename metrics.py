@@ -30,8 +30,8 @@ class ConfusionMatrix:
     #     self.conf_matrix = self.conf_matrix.index_put_(
     #         tuple(idxs), self.ones, accumulate=True)
 
-
-    def getacc(self, x, y):
+    def get_conf_matrix(self, x: torch.Tensor, y: torch.Tensor):
+        x, y = x.detach(), y.detach()
         # sizes should be "batch_size x H x W"
         x_row = x.reshape(-1)  # de-batchify
         y_row = y.reshape(-1)  # de-batchify
@@ -42,7 +42,10 @@ class ConfusionMatrix:
             (self.n_classes, self.n_classes), device=self.device).long()
         conf = conf.index_put_(
             tuple(idxs), ones, accumulate=True)
-        conf = conf.double()
+        return conf
+
+    def get_accuracy(self, x, y):
+        conf = self.get_conf_matrix(x, y).double()
         tp = conf.diag()
         total = conf.sum(dim=1)
         return tp /  total # returns "acc mean"

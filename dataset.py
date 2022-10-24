@@ -84,15 +84,13 @@ class SegmentKits19(datasets.VisionDataset):
             for case in tqdm.tqdm(self.cases):
                 load_list.append(load_func(case))
             return np.concatenate(load_list)
-        print(f"loading cases {self.cases} from file")
+        print(f"{type(self).__name__} loading cases {self.cases} from file")
         print(f"loading imagings")
         self.imagings = load_and_concat(load_imaging_np)
-        print(f"{self.imagings.shape = }")
-        print(f"{self.imagings.dtype = }")
+        print(f"{type(self).__name__}.imagings {self.imagings.shape} {self.imagings.dtype}")
         print(f"loading labels")
         self.labels = load_and_concat(load_segmentation_np)
-        print(f"{self.labels.shape = }")
-        print(f"{self.labels.dtype = }")
+        print(f"{type(self).__name__}.labels {self.labels.shape} {self.labels.dtype}")
 
     def __len__(self):
         return self.imagings.shape[0]
