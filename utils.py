@@ -6,6 +6,7 @@ from shutil import copy
 import numpy as np
 import random
 import torch
+from torch import nn
 
 
 class AverageMeter(object):
@@ -36,9 +37,13 @@ def set_random_seed(seed):
     torch.manual_seed(seed)
 
 
+def get_format_time():
+    return datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+
+
 def make_log_dir(log_dir: str, name: str):
     new_log_dir = os.path.join(
-        log_dir, datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S") + name)
+        log_dir, get_format_time() + name)
     if os.path.isdir(new_log_dir):
         raise Exception(f"{new_log_dir} already exist ! abort ...")
     os.makedirs(new_log_dir)
@@ -67,8 +72,16 @@ class Tee(object):
 
     def write(self, data):
         self.file.write(data)
+        self.file.flush()
         self.stdout.write(data)
 
     def flush(self):
         self.file.flush()
         self.stdout.flush()
+
+
+def save_model(model: nn.Module, save_dir: str, suffice: str):
+    torch.save(
+        model.state_dict(),
+        os.path.join(
+            save_dir, f"{type(model).__name__}_{suffice}.model"))

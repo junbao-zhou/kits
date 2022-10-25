@@ -87,7 +87,8 @@ class SegmentKits19(datasets.VisionDataset):
         print(f"{type(self).__name__} loading cases {self.cases} from file")
         print(f"loading imagings")
         self.imagings = load_and_concat(load_imaging_np)
-        print(f"{type(self).__name__}.imagings {self.imagings.shape} {self.imagings.dtype}")
+        print(
+            f"{type(self).__name__}.imagings {self.imagings.shape} {self.imagings.dtype}")
         print(f"loading labels")
         self.labels = load_and_concat(load_segmentation_np)
         print(f"{type(self).__name__}.labels {self.labels.shape} {self.labels.dtype}")
@@ -139,6 +140,7 @@ def data_loader(
         dataset=train_data,
         batch_size=batch_size,
         shuffle=True,
+        num_workers=6,
     )
 
     val_data = SegmentKits19(
@@ -147,6 +149,7 @@ def data_loader(
     valid_loader = DataLoader(
         dataset=val_data,
         batch_size=batch_size,
+        num_workers=6,
     )
 
     return train_loader, valid_loader

@@ -1,5 +1,6 @@
 import torch
 
+
 class ConfusionMatrix:
     def __init__(self, n_classes, device):
         self.n_classes = n_classes
@@ -44,32 +45,22 @@ class ConfusionMatrix:
             tuple(idxs), ones, accumulate=True)
         return conf
 
-    def get_accuracy(self, x, y):
+    def get_accuracy(self, x, y, eps=1e-6):
         conf = self.get_conf_matrix(x, y).double()
         tp = conf.diag()
-        total = conf.sum(dim=1)
-        return tp /  total # returns "acc mean"
+        total = conf.sum(dim=1) + eps
+        return tp / total  # returns "acc mean"
+
+
+def dice(predicts: torch.Tensor, labels: torch.Tensor, eps=1e-6):
+    intersect = (torch.logical_and(predicts, labels)).sum()
+    union = predicts.sum() + labels.sum()
+    dice = (2.0 * intersect.double()) / (union.double() + eps)
+    return dice
 
 
 def dices(probabilities: torch.Tensor, labels: torch.Tensor):
-    try:
-        # Compute tumor+kidney Dice
-        tk_pd = probabilities > 0
-        tk_gt = labels > 0
-        tk_dice = 2*torch.logical_and(tk_pd, tk_gt).sum()/(
-            tk_pd.sum() + tk_gt.sum()
-        )
-    except ZeroDivisionError:
-        return torch.Tensor([0.0, 0.0])
-
-    try:
-        # Compute tumor Dice
-        tu_pd = probabilities > 1
-        tu_gt = labels > 1
-        tu_dice = 2*torch.logical_and(tu_pd, tu_gt).sum()/(
-            tu_pd.sum() + tu_gt.sum()
-        )
-    except ZeroDivisionError:
-        return torch.Tensor([tk_dice, 0.0])
-
+    probabilities, labels = probabilities.detach(), labels.detach()
+    tk_dice = dice(probabilities > 0, labels > 0)
+    tu_dice = dice(probabilities > 1, labels > 1)
     return torch.Tensor([tk_dice, tu_dice])

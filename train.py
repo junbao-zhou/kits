@@ -1,6 +1,5 @@
 import sys
 import torch.optim as optim
-from datetime import datetime
 from torchvision.models import AlexNet, resnet18
 import torchvision
 from lovasz_loss import Lovasz_softmax
@@ -12,12 +11,10 @@ import torch
 import torch.nn as nn
 import numpy as np
 import config
-from shutil import copy, copytree
 import pathlib
 import os
-import glob
 
-from utils import Tee, copy_codes, make_log_dir
+from utils import Tee, copy_codes, get_format_time, make_log_dir, save_model
 
 current_file_path = pathlib.Path(__file__)
 log_dir = make_log_dir(config.LOG_DIR, config.METHOD_NAME)
@@ -33,8 +30,8 @@ print(f"using {DEVICE}")
 N_CLASSES = 3
 
 train_loader, valid_loader = data_loader(
-    train_cases=list(np.arange(1)),
-    valid_cases=list(np.arange(161, 163)),
+    train_cases=list(np.arange(160)) + list(np.arange(161, 180)),
+    valid_cases=list(np.arange(180, 210)),
     batch_size=config.BATCH_PER_GPU, is_normalize=True, is_augment=True)
 
 
@@ -57,20 +54,26 @@ metrics = {
     "Dice": lambda pred, proba, y: dices(proba, y).cpu().numpy()
 }
 
-epochs = 3
-best_dice = 0
-for epoch in range(0, epochs):
-    print(
-        f'{datetime.now().time().replace(microsecond=0)} --- '
-        f'Epoch: {epoch}\t')
+best_train_dice = 0
+best_valid_dice = 0
+for epoch in range(0, config.MAX_EPOCH):
+    print(f"""
 
-    train_epoch(
+Epoch: {epoch} --- {get_format_time()}
+""")
+
+    train_loss, train_metrics = train_epoch(
         train_loader, model, criterions, metrics, DEVICE, optimizer, print_every=1)
+    dice_now = train_metrics["Dice"].mean()
+    if dice_now > best_train_dice:
+        print(f"Best Dice for train until now !")
+        save_model(model, log_dir, "train_best")
+        best_train_dice = dice_now
 
     valid_loss, valid_metrics = validate(
         valid_loader, model, criterions, metrics, DEVICE, print_every=1)
     dice_now = valid_metrics["Dice"].mean()
-    if dice_now > best_dice:
+    if dice_now > best_valid_dice:
         print(f"Best Dice for validate until now !")
-        torch.save(model.state_dict(), os.path.join(log_dir, f"{type(model).__name__}_valid_best.model"))
-        best_dice = dice_now
+        save_model(model, log_dir, "valid_best")
+        best_valid_dice = dice_now
