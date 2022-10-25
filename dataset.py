@@ -131,14 +131,14 @@ def split_cases(cases: list, split_num):
 
 
 def data_loader(
-        train_cases: list, valid_cases: list, batch_size: int, is_normalize: bool = True, is_augment: bool = False):
+        train_cases: list, valid_cases: list, train_batch_size: int, valid_batch_size: int, is_normalize: bool = True, is_augment: bool = False):
     train_data = SegmentKits19(
         train_cases
     )
 
     train_loader = DataLoader(
         dataset=train_data,
-        batch_size=batch_size,
+        batch_size=train_batch_size,
         shuffle=True,
         num_workers=6,
     )
@@ -148,7 +148,7 @@ def data_loader(
     )
     valid_loader = DataLoader(
         dataset=val_data,
-        batch_size=batch_size,
+        batch_size=valid_batch_size,
         num_workers=6,
     )
 

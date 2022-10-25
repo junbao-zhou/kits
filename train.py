@@ -30,9 +30,11 @@ print(f"using {DEVICE}")
 N_CLASSES = 3
 
 train_loader, valid_loader = data_loader(
-    train_cases=list(np.arange(160)) + list(np.arange(161, 180)),
-    valid_cases=list(np.arange(180, 210)),
-    batch_size=config.BATCH_PER_GPU, is_normalize=True, is_augment=True)
+    train_cases=list(np.arange(162, 163)),
+    valid_cases=list(np.arange(161, 162)),
+    train_batch_size=config.TRAIN_BATCH_PER_GPU,
+    valid_batch_size=config.VALID_BATCH_PER_GPU,
+    is_normalize=True, is_augment=True)
 
 
 model = U_Net(N_CLASSES).to(DEVICE)
