@@ -1,7 +1,6 @@
 import random
 from typing import Callable
 import kits19.starter_code.utils as data_utils
-import nibabel as nib
 import numpy as np
 import PIL.Image as Im
 from torchvision import datasets
@@ -9,16 +8,8 @@ from torch.utils.data import DataLoader, Dataset
 import os
 import tqdm
 import torch
-
-
-def print_nif_img(img: nib.nifti1.Nifti1Image):
-    print(f"shape = {img.shape}")
-    print(f"dtype = {img.get_data_dtype()}")
-    print(f"header = {img.header}")
-
-
-def nif_img_to_numpy(img: nib.nifti1.Nifti1Image):
-    return img.get_fdata()
+import config
+from nif_img import nif_img_to_numpy
 
 
 CLIP_MAX = 512
@@ -35,25 +26,23 @@ def normalize_np(array: np.ndarray, hu_min, hu_max):
 IMAGING_NP_NAME = "imaging.npy"
 SEGMENTATION_NP_NAME = "segmentation.npy"
 
-ALL_CASES = list(np.concatenate((np.arange(160), np.arange(161, 300))))
-TRAINING_CASES = list(np.concatenate((np.arange(160), np.arange(161, 210))))
-
 
 def cases_to_numpy():
-    def convert_cases(cases_list: list, load_func, save_name: str):
+    def convert_cases(cases_list: list, load_func, save_name: str, dtype):
         for case in tqdm.tqdm(cases_list):
             nif = load_func(case)
-            np_array = nif_img_to_numpy(nif)
+            np_array = nif_img_to_numpy(nif, dtype)
             np.save(
                 os.path.join(data_utils.get_case_path(case), save_name),
-                np_array.astype(np.int16),
+                np_array,
                 allow_pickle=True,
             )
     print("converting imagings")
-    convert_cases(ALL_CASES, data_utils.load_volume, IMAGING_NP_NAME)
+    convert_cases(config.ALL_CASES, data_utils.load_volume,
+                  IMAGING_NP_NAME, np.int16)
     print("converting segmentations")
     convert_cases(
-        TRAINING_CASES, data_utils.load_segmentation, SEGMENTATION_NP_NAME)
+        config.TRAINING_CASES, data_utils.load_segmentation, SEGMENTATION_NP_NAME, np.int8)
 
 
 def load_case_np(case_id: int, file_name: str) -> np.ndarray:
@@ -132,10 +121,14 @@ def split_cases(cases: list, split_num):
 
 def data_loader(
         train_cases: list, valid_cases: list, train_batch_size: int, valid_batch_size: int, is_normalize: bool = True, is_augment: bool = False):
+    print(f"""Data loader:
+{train_cases = }
+{valid_cases = }
+""")
+
     train_data = SegmentKits19(
         train_cases
     )
-
     train_loader = DataLoader(
         dataset=train_data,
         batch_size=train_batch_size,
@@ -158,6 +151,6 @@ def data_loader(
 if __name__ == '__main__':
     cases_to_numpy()
 
-    # dataset = SegmentKits19(TRAINING_CASES)
+    # dataset = SegmentKits19(config.TRAINING_CASES)
     # print(f"{dataset.__len__()}")
     # dataset.save_np(313)
