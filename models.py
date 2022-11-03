@@ -21,8 +21,8 @@ class Conv2dBatchNorm(nn.Module):
             out_channels,
             kernel_size,
             stride,
-            padding,
-            padding_mode=padding_mode
+            padding=padding,
+            padding_mode=padding_mode,
         )
         self.bn = nn.BatchNorm2d(out_channels)
 
@@ -48,8 +48,8 @@ class Conv2dBatchNormActivion(nn.Module):
             out_channels,
             kernel_size,
             stride,
-            padding,
-            padding_mode=padding_mode
+            padding=padding,
+            padding_mode=padding_mode,
         )
         self.bn = nn.BatchNorm2d(out_channels)
         self.act = activation
@@ -74,7 +74,13 @@ class Conv2dBatchNormActivionSequential(nn.Sequential):
         for idx, channel in enumerate(channels[:-1]):
             layers.append(
                 Conv2dBatchNormActivion(
-                    channel, channels[idx+1], kernel_size=kernel_size, stride=stride, padding=padding, padding_mode=padding_mode, activation=activation))
+                    channel, channels[idx+1],
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    padding=padding,
+                    padding_mode=padding_mode,
+                    activation=activation,
+                ))
         super(Conv2dBatchNormActivionSequential, self).__init__(*layers)
 
 
@@ -88,7 +94,10 @@ class VGGBlockBatchNorm(nn.Module):
         super(VGGBlockBatchNorm, self).__init__()
 
         self.conv2ds = Conv2dBatchNormActivionSequential(
-            [in_channels] + [out_channels] * num_convs, kernel_size=3, stride=1, padding=1)
+            [in_channels] + [out_channels] * num_convs,
+            kernel_size=3,
+            stride=1,
+            padding=1)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -109,82 +118,6 @@ class VGG16(models.VGG):
             VGGBlockBatchNorm(3, in_channels=512, out_channels=512),
         )
         super(VGG16, self).__init__(features, num_classes, init_weights)
-
-
-# class FCN8(nn.Module):
-
-#     def __init__(self, num_classes):
-#         super(FCN8, self).__init__()
-
-#         vgg16 = VGG16()
-#         create_model(vgg16, '', is_load_model=True)
-
-#         self.feature_extractors = nn.ModuleDict({
-#             '2': vgg16.features[0],
-#             '4': vgg16.features[1],
-#             '8': vgg16.features[2],
-#             '16': vgg16.features[3],
-#             '32': vgg16.features[4],
-#         })
-
-#         self.predict = nn.Sequential(
-#             Conv2dBatchNormActivion(
-#                 in_channels=512, out_channels=1024,
-#                 kernel_size=3, padding=1
-#             ),
-#             Conv2dBatchNormActivion(
-#                 in_channels=1024, out_channels=num_classes,
-#                 kernel_size=1
-#             ),
-#         )
-
-#         self.features_skip = nn.ModuleDict({
-#             '8': Conv2dBatchNorm(in_channels=256, out_channels=num_classes, kernel_size=1),
-#             '16': Conv2dBatchNorm(in_channels=512, out_channels=num_classes, kernel_size=1),
-#         })
-
-#         self.upsample = nn.ModuleDict({
-#             '8': nn.ConvTranspose2d(
-#                 in_channels=num_classes, out_channels=num_classes, kernel_size=3, stride=2, padding=1),
-#             '16': nn.ConvTranspose2d(
-#                 in_channels=num_classes, out_channels=num_classes, kernel_size=3, stride=2, padding=1),
-#         })
-
-#         self.final_upsample = nn.Sequential(
-#             nn.ConvTranspose2d(
-#                 in_channels=num_classes, out_channels=num_classes, kernel_size=3, stride=2, padding=1, output_padding=1),
-#             nn.ConvTranspose2d(
-#                 in_channels=num_classes, out_channels=num_classes, kernel_size=3, stride=2, padding=1, output_padding=1),
-#             nn.ConvTranspose2d(
-#                 in_channels=num_classes, out_channels=num_classes, kernel_size=3, stride=2, padding=1, output_padding=1),
-#         )
-
-#     def forward(self, x):
-#         input_size = x.size()
-
-#         # Size of input=1,num_classes,256,256
-#         f = {}
-#         for downsample_rate, layer in self.feature_extractors.items():
-#             f[downsample_rate] = layer(x)
-#             x = f[downsample_rate]
-
-#         predict = self.predict(x)
-
-#         features_skip_out = {
-#             '8': self.features_skip['8'](f['8']),
-#             '16': self.features_skip['16'](f['16']),
-#         }
-
-#         predict = self.upsample['16'](
-#             predict, features_skip_out['16'].size()[2:])
-#         predict += features_skip_out['16']
-#         predict = self.upsample['8'](
-#             predict, features_skip_out['8'].size()[2:])
-#         predict += features_skip_out['8']
-#         output = self.final_upsample(
-#             predict)
-
-#         return output
 
 
 class SegNet(nn.Module):
@@ -291,3 +224,8 @@ class U_Net(nn.Module):
                 (x, encode_results[upsample_rate]), dim=1)
             x = layer(concat_map)
         return x
+
+
+if __name__ == "__main__":
+    u_net = U_Net(3)
+    print(u_net.state_dict().keys())
