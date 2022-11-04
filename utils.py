@@ -63,20 +63,20 @@ def copy_codes(log_dir):
 
 class Tee(object):
     def __init__(self, filename):
-        self.file = open(filename, 'w')
+        self.file_name = filename
+        with open(self.file_name, "w") as f:
+            pass
         self.stdout = sys.stdout
 
     def close(self):
         sys.stdout = self.stdout
-        self.file.close()
 
     def write(self, data):
-        self.file.write(data)
-        self.file.flush()
+        with open(self.file_name, "a") as f:
+            f.write(data)
         self.stdout.write(data)
 
     def flush(self):
-        self.file.flush()
         self.stdout.flush()
 
 
