@@ -1,5 +1,5 @@
 import random
-from typing import Callable
+from typing import Any, Callable, Dict, List
 import kits19.starter_code.utils as data_utils
 import numpy as np
 import PIL.Image as Im
@@ -61,40 +61,74 @@ def load_segmentation_np(case_id):
     return load_case_np(case_id, SEGMENTATION_NP_NAME)
 
 
+def dict_of_np(d: Dict[Any, np.ndarray]):
+    return {
+        key: (array.shape, array.dtype)
+        for key, array in d.items()
+    }
+
+
 class SegmentKits19(datasets.VisionDataset):
     def __init__(
         self,
-        cases,
+        cases: List[int],
     ) -> None:
         self.cases = cases
 
-        def load_and_concat(load_func: Callable):
-            load_list = []
+        def load(load_func: Callable):
+            load_dict = {}
+            cases_index = []
+            image_index = []
             for case in tqdm.tqdm(self.cases):
-                load_list.append(load_func(case))
-            return np.concatenate(load_list)
+                loaded = load_func(case)
+                cases_index += [case] * loaded.shape[0]
+                image_index += list(range(loaded.shape[0]))
+                load_dict[case] = loaded
+                # load_list.append(load_func(case))
+            return load_dict, cases_index, image_index
         print(f"{type(self).__name__} loading cases {self.cases} from file")
         print(f"loading imagings")
-        self.imagings = load_and_concat(load_imaging_np)
+        self.imagings, _, _ = load(load_imaging_np)
         print(
-            f"{type(self).__name__}.imagings {self.imagings.shape} {self.imagings.dtype}")
+            f"{type(self).__name__}.imagings {dict_of_np(self.imagings)}")
         print(f"loading labels")
-        self.labels = load_and_concat(load_segmentation_np)
-        print(f"{type(self).__name__}.labels {self.labels.shape} {self.labels.dtype}")
+        self.labels, self.cases_index, self.image_index = load(
+            load_segmentation_np)
+        print(f"{type(self).__name__}.labels {dict_of_np(self.labels)}")
+        # print(f"{self.cases_index = }")
+        # print(f"{self.image_index = }")
 
     def __len__(self):
-        return self.imagings.shape[0]
+        return len(self.cases_index)
 
     def get_np(self, index):
-        return self.imagings[index], self.labels[index]
+        case = self.cases_index[index]
+        img_id = self.image_index[index]
+        return self.imagings[case][img_id], self.labels[case][img_id]
+
+    def get_np_3(self, index):
+        case = self.cases_index[index]
+        img_1_id = self.image_index[index]
+        img_0_id = img_1_id if img_1_id == 0 else (img_1_id-1)
+        img_2_id = img_1_id if img_1_id == (
+            self.imagings[case].shape[0]-1) else (img_1_id+1)
+        imgs_3 = np.stack(
+            (self.imagings[case][img_0_id], self.imagings[case]
+             [img_1_id], self.imagings[case][img_2_id]),
+        )
+        labels = self.labels[case][img_1_id]
+        return imgs_3, labels
 
     def get_transformed_np(self, index):
-        img_np, label_np = self.get_np(index)
+        img_np, label_np = self.get_np_3(index)
         img_np = normalize_np(img_np.astype(np.float32), CLIP_MIN, CLIP_MAX)
         return img_np, label_np
 
     def save_np(self, index):
         img_np, label_np = self.get_transformed_np(index)
+        if len(img_np.shape) == 3:
+            img_np = np.moveaxis(img_np, 0, 2)
+            label_np = np.moveaxis(label_np, 0, 2)
         img = Im.fromarray((255.0 * img_np).astype(np.uint8))
         img.save("imaging.png")
         label = Im.fromarray((127.0 * label_np).astype(np.uint8))
@@ -104,7 +138,8 @@ class SegmentKits19(datasets.VisionDataset):
         img_np, label_np = self.get_transformed_np(index)
         img = torch.from_numpy(img_np)
         label = torch.from_numpy(label_np).long()
-        img.unsqueeze_(0)
+        if len(img.shape) == 2:
+            img.unsqueeze_(0)
         # label.unsqueeze_(0)
 
         return img, label
@@ -151,6 +186,6 @@ def data_loader(
 if __name__ == '__main__':
     cases_to_numpy()
 
-    # dataset = SegmentKits19(config.TRAINING_CASES)
+    # dataset = SegmentKits19(config.TRAINING_CASES[40:50])
     # print(f"{dataset.__len__()}")
-    # dataset.save_np(313)
+    # dataset.save_np(205)
