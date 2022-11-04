@@ -1,10 +1,9 @@
 import sys
 import torch.optim as optim
-from torchvision.models import AlexNet, resnet18
-import torchvision
+from arguments import parse_args
 from lovasz_loss import Lovasz_softmax
-from models import U_Net
-from dataset import data_loader
+from models import Res_U_Net, U_Net
+from dataset import data_loader, split_cases
 from metrics import ConfusionMatrix, dices
 from model_run import train_epoch, validate
 import torch
@@ -13,11 +12,13 @@ import numpy as np
 import config
 import pathlib
 import os
+from utils import Tee, copy_codes, get_format_time, make_log_dir, save_model, set_random_seed
 
-from utils import Tee, copy_codes, get_format_time, make_log_dir, save_model
+args, _ = parse_args()
 
+set_random_seed(123)
 current_file_path = pathlib.Path(__file__)
-log_dir = make_log_dir(config.LOG_DIR, config.METHOD_NAME)
+log_dir = make_log_dir(args.log, config.METHOD_NAME)
 copy_codes(log_dir)
 sys.stdout = Tee(os.path.join(log_dir, "print.log"))
 np.set_printoptions(precision=4)
@@ -25,20 +26,25 @@ np.set_printoptions(precision=4)
 os.environ["CUDA_VISIBLE_DEVICES"] = config.GPU_S
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"using {DEVICE}")
+print(f"""
+using {DEVICE} | cuda num {torch.cuda.device_count()}
+""")
 
 N_CLASSES = 3
 
+valid_cases, train_cases = split_cases(config.TRAINING_CASES, 30)
 train_loader, valid_loader = data_loader(
-    train_cases=list(np.arange(0, 160)) + list(np.arange(161, 180)),
-    valid_cases=list(np.arange(180, 210)),
-    train_batch_size=config.TRAIN_BATCH_PER_GPU,
-    valid_batch_size=config.VALID_BATCH_PER_GPU,
+    train_cases=train_cases,
+    valid_cases=valid_cases,
+    train_batch_size=config.TRAIN_BATCH_PER_GPU * torch.cuda.device_count(),
+    valid_batch_size=config.VALID_BATCH_PER_GPU * torch.cuda.device_count(),
     is_normalize=True, is_augment=True)
 
 
-model = U_Net(N_CLASSES).to(DEVICE)
+model = Res_U_Net(3, N_CLASSES).to(DEVICE)
+# model = nn.DataParallel(model)
 if config.BASE_MODEL_PATH is not None:
+    print(f"loading model from {config.BASE_MODEL_PATH}")
     model.load_state_dict(
         torch.load(
             os.path.join(config.BASE_MODEL_PATH, f"{type(model).__name__}_valid_best.model")))
