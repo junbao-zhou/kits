@@ -238,18 +238,20 @@ class ResBlockDownsaple(nn.Module):
             kernel_size=3,
             stride=2,
             padding=1,
+            padding_mode='zeros',
         )
         self.bn1 = nn.BatchNorm2d(out_channels)
-        self.act1 = nn.LeakyReLU()
+        self.act1 = nn.LeakyReLU(negative_slope=0.01)
         self.conv2 = nn.Conv2d(
             in_channels=out_channels,
             out_channels=out_channels,
             kernel_size=3,
             stride=1,
             padding=1,
+            padding_mode='zeros',
         )
         self.bn2 = nn.BatchNorm2d(out_channels)
-        self.act2 = nn.LeakyReLU()
+        self.act2 = nn.LeakyReLU(negative_slope=0.01)
         self.downsample = nn.Sequential(
             nn.Conv2d(
                 in_channels=in_channels,
@@ -257,6 +259,7 @@ class ResBlockDownsaple(nn.Module):
                 kernel_size=3,
                 stride=2,
                 padding=1,
+                padding_mode='zeros',
             ),
             nn.BatchNorm2d(out_channels),
         )
@@ -287,18 +290,20 @@ class UpsampleResBlock(nn.Module):
             kernel_size=3,
             stride=1,
             padding=1,
+            padding_mode='zeros',
         )
         self.bn1 = nn.BatchNorm2d(out_channels)
-        self.act1 = nn.LeakyReLU()
+        self.act1 = nn.LeakyReLU(negative_slope=0.01)
         self.conv2 = nn.Conv2d(
             in_channels=out_channels,
             out_channels=out_channels,
             kernel_size=3,
             stride=1,
             padding=1,
+            padding_mode='zeros',
         )
         self.bn2 = nn.BatchNorm2d(out_channels)
-        self.act2 = nn.LeakyReLU()
+        self.act2 = nn.LeakyReLU(negative_slope=0.01)
 
     def forward(self, x, y):
         out = self.upsample(x)
@@ -337,16 +342,17 @@ class Res_U_Net(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
+                padding_mode='zeros',
             ),
             nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(negative_slope=0.01),
         )
-        self.encoders = nn.ModuleDict({
-            '2': ResBlockDownsaple(in_channels=32, out_channels=64),
-            '4': ResBlockDownsaple(in_channels=64, out_channels=128),
-            '8': ResBlockDownsaple(in_channels=128, out_channels=256),
-            '16': ResBlockDownsaple(in_channels=256, out_channels=512),
-        })
+        self.encoders = nn.ModuleList([
+            ResBlockDownsaple(in_channels=32, out_channels=64),
+            ResBlockDownsaple(in_channels=64, out_channels=128),
+            ResBlockDownsaple(in_channels=128, out_channels=256),
+            ResBlockDownsaple(in_channels=256, out_channels=512),
+        ])
         self.connector = nn.Sequential(
             nn.Conv2d(
                 in_channels=512,
@@ -354,44 +360,44 @@ class Res_U_Net(nn.Module):
                 kernel_size=3,
                 stride=2,
                 padding=1,
+                padding_mode='zeros',
             ),
             nn.BatchNorm2d(1024),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(negative_slope=0.01),
         )
-        self.decoders = nn.ModuleDict({
-            '16': UpsampleResBlock(out_channels=512),
-            '8': UpsampleResBlock(out_channels=256),
-            '4': UpsampleResBlock(out_channels=128),
-            '2': UpsampleResBlock(out_channels=64),
-        })
-        self.shortcuts = nn.ModuleDict({
-            '2': conv1x1(in_channels=64, out_channels=32),
-            '4': conv1x1(in_channels=128, out_channels=64),
-            '8': conv1x1(in_channels=256, out_channels=128),
-            '16': conv1x1(in_channels=512, out_channels=256),
-        })
+        self.decoders = nn.ModuleList([
+            UpsampleResBlock(out_channels=64),
+            UpsampleResBlock(out_channels=128),
+            UpsampleResBlock(out_channels=256),
+            UpsampleResBlock(out_channels=512),
+        ])
+        self.shortcuts = nn.ModuleList([
+            conv1x1(in_channels=64, out_channels=32),
+            conv1x1(in_channels=128, out_channels=64),
+            conv1x1(in_channels=256, out_channels=128),
+            conv1x1(in_channels=512, out_channels=256),
+        ])
         self.upsample = nn.PixelShuffle(2)
         self.conv_last = conv1x1(in_channels=32+16, out_channels=out_channels)
 
     def forward(self, x):
         ident = self.conv0(x)
         out = ident
-        encode_results = {}
-        for downsample_rate, layer in self.encoders.items():
-            encode_results[downsample_rate] = layer(out)
-            out = encode_results[downsample_rate]
+        encode_results = []
+        for layer in self.encoders:
+            out = layer(out)
+            encode_results.append(out)
         out = self.connector(out)
-        for upsample_rate, layer in self.decoders.items():
-            short = self.shortcuts[upsample_rate](
-                encode_results[upsample_rate])
-            out = layer(
+        for i in range(len(self.decoders)-1, -1, -1):
+            short = self.shortcuts[i](
+                encode_results[i])
+            out = self.decoders[i](
                 out,
                 short)
         out = self.upsample(out)
         out = self.conv_last(
             torch.cat(
-                (out, ident), dim=1
-            )
+                (out, ident), dim=1)
         )
         return out
 
