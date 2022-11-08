@@ -12,7 +12,7 @@ import numpy as np
 import config
 import pathlib
 import os
-from utils import Tee, copy_codes, get_format_time, make_log_dir, save_model, set_random_seed
+from utils import Tee, copy_codes, get_format_time, load_model, make_log_dir, save_model, set_random_seed
 
 args, _ = parse_args()
 
@@ -44,10 +44,11 @@ train_loader, valid_loader = data_loader(
 model = Res_U_Net(3, N_CLASSES).to(DEVICE)
 # model = nn.DataParallel(model)
 if config.BASE_MODEL_PATH is not None:
-    print(f"loading model from {config.BASE_MODEL_PATH}")
-    model.load_state_dict(
-        torch.load(
-            os.path.join(config.BASE_MODEL_PATH, f"{type(model).__name__}_valid_best.model")))
+    load_model(
+        model=model,
+        load_dir=config.BASE_MODEL_PATH,
+        suffice="valid_best",
+    )
 
 
 optimizer = optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
