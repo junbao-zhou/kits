@@ -5,6 +5,7 @@ import numpy as np
 import PIL.Image as Im
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Dataset
+import torchvision.transforms.functional as transformF
 import os
 import tqdm
 import torch
@@ -68,13 +69,59 @@ def dict_of_np(d: Dict[Any, np.ndarray]):
     }
 
 
-augment_transforms = [
-    transforms.RandomRotation(
-        degrees=8, interpolation=transforms.InterpolationMode.NEAREST),
-    transforms.RandomHorizontalFlip(p=0.5),
-    transforms.Pad(12),
-    transforms.RandomCrop(512),
-]
+class RandomRotationMasked(transforms.RandomRotation):
+    def __init__(
+        self, degrees, interpolation=transforms.InterpolationMode.NEAREST, expand=False, center=None, fill=0, resample=None
+    ):
+        super(RandomRotationMasked, self).__init__(
+            degrees, interpolation, expand, center, fill, resample)
+
+    def forward(self, img):
+        angle = self.get_params(self.degrees)
+        img_out = transformF.rotate(
+            img[:-1], angle, self.resample, self.expand, self.center)
+        mask_out = transformF.rotate(
+            img[-1:], angle, transforms.InterpolationMode.NEAREST, self.expand, self.center)
+        return torch.concat((img_out, mask_out))
+
+
+class RandomResizedCropMasked(transforms.RandomResizedCrop):
+    def __init__(
+        self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.), interpolation=transforms.InterpolationMode.BILINEAR,
+    ):
+        print(
+            f"{type(self).__name__} : {size = }  {scale = }  {ratio = }  {interpolation = }")
+        super(RandomResizedCropMasked, self).__init__(
+            size, scale, ratio, interpolation)
+
+    def forward(self, img):
+        i, j, h, w = self.get_params(img, self.scale, self.ratio)
+        img_out = transformF.resized_crop(
+            img[:-1], i, j, h, w, self.size, self.interpolation)
+        mask_out = transformF.resized_crop(
+            img[-1:], i, j, h, w, self.size, transforms.InterpolationMode.NEAREST)
+        return torch.concat((img_out, mask_out))
+
+
+class augmentation:
+    image_size = 512
+    image_area = image_size ** 2
+    pad_size = 12
+    padded_image_area = (image_size + pad_size) ** 2
+    transforms = [
+        RandomRotationMasked(
+            degrees=9, interpolation=transforms.InterpolationMode.BILINEAR),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.Pad(12),
+        RandomResizedCropMasked(
+            size=image_size,
+            scale=(
+                (image_size - 10) ** 2 / padded_image_area,
+                (image_size + 10) ** 2 / padded_image_area,
+            ),
+            ratio=(96. / 100., 100. / 96.),
+        ),
+    ]
 
 
 class SegmentKits19(datasets.VisionDataset):
@@ -155,14 +202,14 @@ class SegmentKits19(datasets.VisionDataset):
             label.unsqueeze_(0)
 
         if self.is_augment:
-            for transform in augment_transforms:
+            image_mask = torch.concat((img, label))
+            for transform in augmentation.transforms:
                 if isinstance(transform, torch.nn.Module):
-                    image_mask = torch.concat((img, label))
                     image_mask = transform(image_mask)
-                    img = image_mask[:-1]
-                    label = image_mask[-1:]
                 else:
                     raise TypeError("transform must be transforms")
+            img = image_mask[:-1]
+            label = image_mask[-1:]
 
         return img, label.squeeze().long()
 
@@ -228,7 +275,7 @@ def data_loader(
 if __name__ == '__main__':
     # cases_to_numpy()
 
-    dataset = SegmentKits19(config.TRAINING_CASES[40:50], is_augment=True)
+    dataset = SegmentKits19(config.TRAINING_CASES[40:45], is_augment=True)
     print(f"{dataset.__len__()}")
     # dataset.save_np(100)
     dataset.save_torch(67)
