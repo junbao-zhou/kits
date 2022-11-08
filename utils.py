@@ -89,9 +89,9 @@ def save_model(model: nn.Module, save_dir: str, suffice: str):
         model_path)
 
 
-def load_model(model: nn.Module, load_dir: str, suffice: str):
+def load_model(model: nn.Module, load_dir: str, suffice: str, map_location=None):
     model_path = os.path.join(
         load_dir, f"{type(model).__name__}_{suffice}.model")
     print(f"loading model from {model_path}")
     model.load_state_dict(
-        torch.load(model_path))
+        torch.load(model_path, map_location=map_location))
