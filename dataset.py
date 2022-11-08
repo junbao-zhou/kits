@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, List
 import kits19.starter_code.utils as data_utils
 import numpy as np
 import PIL.Image as Im
-from torchvision import datasets
+from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Dataset
 import os
 import tqdm
@@ -68,12 +68,24 @@ def dict_of_np(d: Dict[Any, np.ndarray]):
     }
 
 
+augment_transforms = [
+    transforms.RandomRotation(
+        degrees=8, interpolation=transforms.InterpolationMode.NEAREST),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.Pad(12),
+    transforms.RandomCrop(512),
+]
+
+
 class SegmentKits19(datasets.VisionDataset):
     def __init__(
         self,
         cases: List[int],
+        is_augment: bool = False,
     ) -> None:
         self.cases = cases
+        self.is_augment = is_augment
+        print(f"{type(self).__name__} {self.is_augment = }")
 
         def load(load_func: Callable):
             load_dict = {}
@@ -128,7 +140,6 @@ class SegmentKits19(datasets.VisionDataset):
         img_np, label_np = self.get_transformed_np(index)
         if len(img_np.shape) == 3:
             img_np = np.moveaxis(img_np, 0, 2)
-            label_np = np.moveaxis(label_np, 0, 2)
         img = Im.fromarray((255.0 * img_np).astype(np.uint8))
         img.save("imaging.png")
         label = Im.fromarray((127.0 * label_np).astype(np.uint8))
@@ -137,10 +148,40 @@ class SegmentKits19(datasets.VisionDataset):
     def __getitem__(self, index):
         img_np, label_np = self.get_transformed_np(index)
         img = torch.from_numpy(img_np)
-        label = torch.from_numpy(label_np).long()
+        label = torch.from_numpy(label_np).float()
         if len(img.shape) == 2:
             img.unsqueeze_(0)
-        # label.unsqueeze_(0)
+        if len(label.shape) == 2:
+            label.unsqueeze_(0)
+
+        if self.is_augment:
+            for transform in augment_transforms:
+                if isinstance(transform, torch.nn.Module):
+                    image_mask = torch.concat((img, label))
+                    image_mask = transform(image_mask)
+                    img = image_mask[:-1]
+                    label = image_mask[-1:]
+                else:
+                    raise TypeError("transform must be transforms")
+
+        return img, label.squeeze().long()
+
+    def save_torch(self, index):
+        img_torch, label_torch = self.__getitem__(index)
+        img_np = img_torch.numpy()
+        label_np = label_torch.numpy()
+        if len(img_np.shape) == 3:
+            img_np = np.moveaxis(img_np, 0, 2)
+        img = Im.fromarray((255.0 * img_np).astype(np.uint8))
+        img.save("imaging.png")
+        label = Im.fromarray((127.0 * label_np).astype(np.uint8))
+        label.save("label.png")
+
+    def get_mindpore(self, index):
+        import mindspore
+        img_np, label_np = self.get_transformed_np(index)
+        img = mindspore.Tensor(img_np)
+        label = mindspore.Tensor(label_np).long()
 
         return img, label
 
@@ -162,7 +203,8 @@ def data_loader(
 """)
 
     train_data = SegmentKits19(
-        train_cases
+        train_cases,
+        is_augment=is_augment,
     )
     train_loader = DataLoader(
         dataset=train_data,
@@ -184,8 +226,9 @@ def data_loader(
 
 
 if __name__ == '__main__':
-    cases_to_numpy()
+    # cases_to_numpy()
 
-    # dataset = SegmentKits19(config.TRAINING_CASES[40:50])
-    # print(f"{dataset.__len__()}")
-    # dataset.save_np(205)
+    dataset = SegmentKits19(config.TRAINING_CASES[40:50], is_augment=True)
+    print(f"{dataset.__len__()}")
+    # dataset.save_np(100)
+    dataset.save_torch(67)
