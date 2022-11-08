@@ -46,10 +46,12 @@ class ConfusionMatrix:
         return conf
 
     def get_accuracy(self, x, y, eps=1e-6):
-        conf = self.get_conf_matrix(x, y).double()
-        tp = conf.diag()
-        total = conf.sum(dim=1) + eps
-        return tp / total  # returns "acc mean"
+        acc_list = []
+        for cls in range(self.n_classes):
+            tp = torch.logical_and((x == cls), (y == cls)).sum()
+            total = (x == cls).sum()
+            acc_list.append(tp.float().item() / (total.float().item() + eps))
+        return torch.Tensor(acc_list)
 
 
 def dice(predicts: torch.Tensor, labels: torch.Tensor, eps=1e-6):
