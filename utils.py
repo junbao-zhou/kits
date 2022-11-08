@@ -81,7 +81,17 @@ class Tee(object):
 
 
 def save_model(model: nn.Module, save_dir: str, suffice: str):
+    model_path = os.path.join(
+            save_dir, f"{type(model).__name__}_{suffice}.model")
+    print(f"saving model to {model_path}")
     torch.save(
         model.state_dict(),
-        os.path.join(
-            save_dir, f"{type(model).__name__}_{suffice}.model"))
+        model_path)
+
+
+def load_model(model: nn.Module, load_dir: str, suffice: str):
+    model_path = os.path.join(
+        load_dir, f"{type(model).__name__}_{suffice}.model")
+    print(f"loading model from {model_path}")
+    model.load_state_dict(
+        torch.load(model_path))
