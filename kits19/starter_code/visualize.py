@@ -268,7 +268,7 @@ if __name__ == '__main__':
 
     # Run visualization
     visualize(
-        args.case_id, args.destination, 
+        int(args.case_id), args.destination, 
         hu_min=args.lower_hu_bound, hu_max=args.upper_hu_bound,
         plane=args.plane
     )
