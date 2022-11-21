@@ -53,5 +53,5 @@ test_from_file(
     cases=test_cases,
     batch_size=config.VALID_BATCH_PER_GPU,
     metrics=metrics,
-    output_dir="mindspore_infer/ascend_data/output_data",
+    output_dir="mindspore_infer/output_data",
 )
