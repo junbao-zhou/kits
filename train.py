@@ -53,8 +53,8 @@ if config.BASE_MODEL_PATH is not None:
 
 optimizer = optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
 criterions = {
-    "X_Entropy": (nn.CrossEntropyLoss(weight=torch.Tensor([1, 128, 600])).to(DEVICE), 1.0),
-    "Lovasz": (Lovasz_softmax().to(DEVICE), 1.0),
+    "X_Entropy": (nn.CrossEntropyLoss(weight=torch.Tensor([1, 128, 700])).to(DEVICE), 1.5),
+    "Lovasz": (Lovasz_softmax().to(DEVICE), 0.7),
 }
 
 conf_matrix = ConfusionMatrix(N_CLASSES, DEVICE)
