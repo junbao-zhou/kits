@@ -3,3 +3,4 @@
 !*.py
 !*.md
 !kits19
+!mindspore_infer
