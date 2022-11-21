@@ -1,3 +1,4 @@
 *
 !.gitignore
-!infer.py
+!*.py
+!*.md
