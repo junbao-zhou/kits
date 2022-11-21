@@ -65,6 +65,13 @@ metrics = {
 
 best_train_dice = 0
 best_valid_dice = 0
+valid_loss, valid_metrics = validate(
+    valid_loader, model, criterions, metrics, DEVICE, print_every=1)
+dice_now = valid_metrics["Dice"].mean()
+if dice_now > best_valid_dice:
+    print(f"Best Dice for validate until now !")
+    save_model(model, log_dir, "valid_best")
+    best_valid_dice = dice_now
 for epoch in range(0, config.MAX_EPOCH):
     print(f"""
 
